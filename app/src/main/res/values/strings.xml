@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Millionaire</string>
+    <string name="start_game">Начать игру</string>
+    <string name="welcome">Добро пожаловать в игру кто хочет стать миллионером</string>
+    <string name="prize">выигрыш:</string>
+
+
+
+</resources>
