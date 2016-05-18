@@ -1,6 +1,7 @@
 package com.example.dmitriy.millionaire;
 
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -14,10 +15,14 @@ import android.widget.Toast;
 import com.example.dmitriy.millionaire.controller.Controller;
 import com.example.dmitriy.millionaire.models.GameQuestions;
 import com.example.dmitriy.millionaire.rest.Retrofit2Config;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -26,6 +31,9 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    private static final String SAVE_GAME = "SAVE_GAME";
+    private static final String INDEX = "INDEX";
 
     private TextView prize;
     private TextView tvQuestion;
@@ -45,8 +53,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Controller controller;
     private GameQuestions question;
 
-    private int index = 0;
+    private int index ;
     private ArrayList<GameQuestions> gameQuestions;
+    private List<GameQuestions> Questionses;
+    private Integer savedIndex;
 
     private Random r;
     private boolean friendHelp = false;
@@ -58,6 +68,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Integer [] arrayButtonsKeys;
     private Button greenButton;
     private int[] money = {0,100,200,400,800,1600,3500,8000,16000,32000,64000,125000,250000,500000,1000000};
+
+    private SharedPreferences sPref;
 
 
     @Override
@@ -100,6 +112,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         keys = visibleButtons.keySet();
         arrayButtonsKeys = keys.toArray(new Integer[keys.size()]);
 
+
+
+        sPref = getPreferences(MODE_PRIVATE);
+        Gson gson = new Gson();
+        String json = sPref.getString(SAVE_GAME,"");
+        savedIndex = sPref.getInt(INDEX,0);
+        Type type = new TypeToken<List<GameQuestions>>(){}.getType();
+        Questionses = gson.fromJson(json,type);
+        if(Questionses!=null && Questionses.size()!=0){
+        Log.d("SHAREDPREF NEW: ",Questionses.get(0).getBody());
+        Log.d("SHAREDPREF NEWINDEX: ",String.valueOf(savedIndex));}
+    }
+
+
+
+
+
+    protected void saveGame() {
+        sPref = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = sPref.edit();
+        Gson gson = new Gson();
+        String json = gson.toJson(gameQuestions);
+        editor.putString(SAVE_GAME,json);
+        editor.commit();
+        Log.d("SaveGame",gameQuestions.get(0).getBody());
+    }
+
+    @Override
+    protected void onStop() {
+        sPref = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = sPref.edit();
+        editor.putInt(INDEX,index);
+        editor.commit();
+        Log.d("SHAREDPREF INDEX",String.valueOf(index));
+        super.onStop();
     }
 
     public void setEnableButtons(boolean isEnable){
@@ -115,7 +162,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.start_game:
+                if(Questionses==null||Questionses.size()==0)
                 createRequest();
+                else resumeGame(Questionses,savedIndex);
 
                 linear1.setVisibility(View.VISIBLE);
                 linear2.setVisibility(View.VISIBLE);
@@ -126,7 +175,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.answer_a:
                 if (question.getAnswers().get(0).is_correct()) {
-                    question = controller.getQuestion(++index);
+                    question = controller.getQuestion((savedIndex!=0)?++savedIndex:++index);
                     if (question != null)
                         setTextInView();
                     else createDialogWinner();
@@ -134,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.answer_b:
                 if (question.getAnswers().get(1).is_correct()) {
-                    question = controller.getQuestion(++index);
+                    question = controller.getQuestion((savedIndex!=0)?++savedIndex:++index);
                     if (question != null)
                         setTextInView();
                     else createDialogWinner();
@@ -142,7 +191,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.answer_c:
                 if (question.getAnswers().get(2).is_correct()) {
-                    question = controller.getQuestion(++index);
+                    question = controller.getQuestion((savedIndex!=0)?++savedIndex:++index);
                     if (question != null)
                         setTextInView();
                     else createDialogWinner();
@@ -150,7 +199,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.answer_d:
                 if (question.getAnswers().get(3).is_correct()) {
-                    question = controller.getQuestion(++index);
+                    question = controller.getQuestion((savedIndex!=0)?++savedIndex:++index);
                     if (question != null)
                         setTextInView();
                     else createDialogWinner();
@@ -183,7 +232,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         answerB.setText("B: " + question.getAnswers().get(1).getBody());
         answerC.setText("C: " + question.getAnswers().get(2).getBody());
         answerD.setText("D: " + question.getAnswers().get(3).getBody());
-        prize.setText(getResources().getString(R.string.prize) + " "+ String.valueOf(money[index]));
+        if(savedIndex!=0){
+            index=savedIndex;
+            prize.setText(getResources().getString(R.string.prize) + " "+ String.valueOf(money[index]));
+        }
+        else prize.setText(getResources().getString(R.string.prize) + " "+ String.valueOf(money[index]));
 
 
         if (friendHelp) {
@@ -206,6 +259,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     public void newGame(){
+        index = 0;
         prize.setVisibility(View.GONE);
         tvQuestion.setText(getResources().getText(R.string.welcome));
         linear1.setVisibility(View.INVISIBLE);
@@ -225,12 +279,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 index = 0;
                 if(gameQuestions.size()!=0)gameQuestions.clear();
                 gameQuestions = response.body();
+                saveGame();
                 Log.d("RETROFIT", "onResponse() called with: " + "call = [" + call + "], response = [" + response.body().toString() + "]");
-                controller = new Controller(gameQuestions);
-                question = controller.getQuestion(index);
-                if(question != null){
-                    setEnableButtons(true);
-                setTextInView();}
+                customizeGame(gameQuestions,index);
             }
 
             @Override
@@ -240,6 +291,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
     //endregion
+
+
+    public void resumeGame(List<GameQuestions> gameQuestionses,int index){
+     customizeGame((ArrayList<GameQuestions>)gameQuestionses,index);
+    }
+
+    public void customizeGame(ArrayList<GameQuestions>gameQuestions,int index){
+        controller = new Controller(gameQuestions);
+        question = controller.getQuestion(index);
+        if(question != null){
+            setEnableButtons(true);
+            setTextInView();}
+    }
+
 
     //region Help
 
@@ -329,6 +394,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
+               if (savedIndex!=0){
+                   savedIndex=0;
+               }else index =0;
                 newGame();
             }
         });
